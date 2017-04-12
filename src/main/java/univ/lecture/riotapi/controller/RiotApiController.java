@@ -1,53 +1,123 @@
 package univ.lecture.riotapi.controller;
 
-import lombok.extern.log4j.Log4j;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
+import java.net.URL;
+
+import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.json.JacksonJsonParser;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
-import univ.lecture.riotapi.model.Summoner;
 
-import java.io.UnsupportedEncodingException;
-import java.util.Map;
+import lombok.extern.log4j.Log4j;
+import univ.lecture.riotapi.Calculator;
+import univ.lecture.riotapi.model.Team10;
 
 /**
  * Created by tchi on 2017. 4. 1..
  */
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/calc")
 @Log4j
 public class RiotApiController {
-    @Autowired
-    private RestTemplate restTemplate;
 
-    @Value("${riot.api.endpoint}")
-    private String riotApiEndpoint;
+	@Autowired
+	private RestTemplate restTemplate;
 
-    @Value("${riot.api.key}")
-    private String riotApiKey;
+	@Value("${riot.api.endpoint}")
+	private String riotApiEndpoint;
 
-    @RequestMapping(value = "/summoner/{name}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
-    public Summoner querySummoner(@PathVariable("name") String summonerName) throws UnsupportedEncodingException {
-        final String url = riotApiEndpoint + "/summoner/by-name/" +
-                summonerName +
-                "?api_key=" +
-                riotApiKey;
+	@Value("${riot.api.key}")
+	private String riotApiKey;
 
-        String response = restTemplate.getForObject(url, String.class);
-        Map<String, Object> parsedMap = new JacksonJsonParser().parseMap(response);
+	Logger log = Logger.getLogger(this.getClass());
 
-        parsedMap.forEach((key, value) -> log.info(String.format("key [%s] type [%s] value [%s]", key, value.getClass(), value)));
+	@RequestMapping(method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
+	public @ResponseBody Team10 queryTeam10(@RequestParam(value = "exp") String exp) {
 
-        Map<String, Object> summonerDetail = (Map<String, Object>) parsedMap.values().toArray()[0];
-        String queriedName = (String)summonerDetail.get("name");
-        int queriedLevel = (Integer)summonerDetail.get("summonerLevel");
-        Summoner summoner = new Summoner(queriedName, queriedLevel);
+		Calculator cal = new Calculator();
+		double result = cal.calculate(cal.postfix(exp));
+		long now = System.currentTimeMillis();
+		Team10 team10 = new Team10(10, now, result);
+		log.debug("interrupt");
+		
+		
+		try {
+			URL url = new URL("http://52.79.162.52:8080/api/v1/answer");
 
-        return summoner;
-    }
+			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+
+			conn.setDoOutput(true);
+
+			conn.setRequestMethod("POST"); // 보내는 타입
+
+			conn.setRequestProperty("Accept-Language", "ko-kr,ko;q=0.8,en-us;q=0.5,en;q=0.3");
+
+			//데이터 
+			String param = Double.toString(result);
+
+			// 전송
+
+			OutputStreamWriter osw = new OutputStreamWriter(
+
+			conn.getOutputStream());
+
+			osw.write(param);
+
+			osw.flush();
+
+			// 응답
+
+			BufferedReader br = null;
+
+			br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+
+			String line = null;
+
+			while ((line = br.readLine()) != null) {
+
+				System.out.println(line);
+
+			}
+
+			// 닫기
+
+			osw.close();
+
+			br.close();
+
+		} catch (MalformedURLException e) {
+
+			e.printStackTrace();
+
+		} catch (ProtocolException e) {
+
+			e.printStackTrace();
+
+		} catch (UnsupportedEncodingException e) {
+
+			e.printStackTrace();
+
+		} catch (IOException e) {
+
+			e.printStackTrace();
+
+		}
+
+		return team10;
+
+	}
+
 }
