@@ -55,7 +55,7 @@ public class RiotApiController {
 		
 		
 		try {
-			URL url = new URL("http://52.79.162.52:8080/api/v1/answer");
+			URL url = new URL("https://demo2446904.mockable.io/api/v1/answer");
 
 			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 
